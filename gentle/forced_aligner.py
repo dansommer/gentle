@@ -8,9 +8,27 @@ from gentle.transcription import Transcription
 
 class ForcedAligner():
 
-    def __init__(self, resources, transcript, nthreads=4, **kwargs):
+    def __init__(self, resources, transcript, nthreads=4, realign_passes=3, **kwargs):
+        """Create a new ``ForcedAligner``.
+
+        Parameters
+        ----------
+        resources : :class:`gentle.Resources`
+            Model and binary resources needed for alignment.
+        transcript : str
+            Transcript to align with the provided audio.
+        nthreads : int, optional
+            Number of Kaldi workers to run in parallel.
+        realign_passes : int, optional
+            Number of multipass realignment iterations to run after the
+            initial alignment.  The default (``3``) results in four total
+            alignment passes.
+        **kwargs : dict
+            Passed through to the language model builder and aligner.
+        """
         self.kwargs = kwargs
         self.nthreads = nthreads
+        self.realign_passes = max(realign_passes, 0)
         self.transcript = transcript
         self.resources = resources
         self.ms = metasentence.MetaSentence(transcript, resources.vocab)
@@ -30,17 +48,34 @@ class ForcedAligner():
         # Align words
         words = diff_align.align(words, self.ms, **self.kwargs)
 
-        # Perform a second-pass with unaligned words
+        # Optionally perform additional passes on unaligned words
         if logging is not None:
             logging.info("%d unaligned words (of %d)" % (len([X for X in words if X.not_found_in_audio()]), len(words)))
 
-        if progress_cb is not None:
-            progress_cb({'status': 'ALIGNING'})
+        for i in range(self.realign_passes):
+            if progress_cb is not None:
+                progress_cb({'status': 'ALIGNING'})
 
-        words = multipass.realign(wavfile, words, self.ms, resources=self.resources, nthreads=self.nthreads, progress_cb=progress_cb)
+            if not any(X.not_found_in_audio() for X in words):
+                break
 
-        if logging is not None:
-            logging.info("after 2nd pass: %d unaligned words (of %d)" % (len([X for X in words if X.not_found_in_audio()]), len(words)))
+            words = multipass.realign(
+                wavfile,
+                words,
+                self.ms,
+                resources=self.resources,
+                nthreads=self.nthreads,
+                progress_cb=progress_cb,
+            )
+
+            if logging is not None:
+                logging.info(
+                    "after realign pass %d: %d unaligned words (of %d)" % (
+                        i + 1,
+                        len([X for X in words if X.not_found_in_audio()]),
+                        len(words),
+                    )
+                )
 
         words = AdjacencyOptimizer(words, duration).optimize()
 
