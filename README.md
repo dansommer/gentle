@@ -31,3 +31,5 @@ python3 align.py audio.mp3 words.txt
 ```
 
 The default behaviour outputs the JSON to stdout.  See `python3 align.py --help` for options.
+You can control how many realignment passes are run with the `--realign-passes`
+option (default is `3`).

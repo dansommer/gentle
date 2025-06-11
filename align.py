@@ -26,6 +26,9 @@ parser.add_argument(
         '--log', default="INFO",
         help='the log level (DEBUG, INFO, WARNING, ERROR, or CRITICAL)')
 parser.add_argument(
+        '--realign-passes', dest='realign_passes', type=int, default=3,
+        help='number of realignment passes to run after initial alignment')
+parser.add_argument(
         'audiofile', type=str,
         help='audio file')
 parser.add_argument(
@@ -51,7 +54,15 @@ logging.info("converting audio to 8K sampled wav")
 
 with gentle.resampled(args.audiofile) as wavfile:
     logging.info("starting alignment")
-    aligner = gentle.ForcedAligner(resources, transcript, nthreads=args.nthreads, disfluency=args.disfluency, conservative=args.conservative, disfluencies=disfluencies)
+    aligner = gentle.ForcedAligner(
+        resources,
+        transcript,
+        nthreads=args.nthreads,
+        disfluency=args.disfluency,
+        conservative=args.conservative,
+        disfluencies=disfluencies,
+        realign_passes=args.realign_passes,
+    )
     result = aligner.transcribe(wavfile, progress_cb=on_progress, logging=logging)
 
 fh = open(args.output, 'w', encoding="utf-8") if args.output else sys.stdout

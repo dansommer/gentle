@@ -145,9 +145,16 @@ class TranscriptionsController(Resource):
 
         disfluency = True if b'disfluency' in req.args else False
         conservative = True if b'conservative' in req.args else False
-        kwargs = {'disfluency': disfluency,
-                  'conservative': conservative,
-                  'disfluencies': set(['uh', 'um'])}
+        kwargs = {
+            'disfluency': disfluency,
+            'conservative': conservative,
+            'disfluencies': set(['uh', 'um']),
+        }
+        if b'realign_passes' in req.args:
+            try:
+                kwargs['realign_passes'] = int(req.args[b'realign_passes'][0])
+            except ValueError:
+                pass
 
         async_mode = True
         if b'async' in req.args and req.args[b'async'][0] == b'false':
